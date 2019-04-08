@@ -7,7 +7,7 @@
             "metadata": {
                 "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
             },
-            "defaultValue": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/iis-2vm-sql-1vm/"
+            "defaultValue": "https://raw.githubusercontent.com/jmo808/azure-iis-sql/master/"
         },
         "_artifactsLocationSasToken": {
             "type": "securestring",
@@ -21,7 +21,7 @@
             "metadata": {
                 "description": "Prefix for the environment (2-5 characters)"
             },
-            "defaultValue": "cust1",
+            "defaultValue": "demo",
             "minLength": 2,
             "maxLength": 5
         },
@@ -125,9 +125,161 @@
         "lbProbeID": "[concat(variables('webLbId'),'/probes/tcpProbe')]",
         "vmExtensionName": "dscExtension",
         "modulesUrl": "[concat(parameters('_artifactsLocation'), 'scripts/WebServerConfig.ps1.zip', parameters('_artifactsLocationSasToken'))]",
-        "configurationFunction": "WebServerConfig.ps1\\WebServerConfig"
+        "configurationFunction": "WebServerConfig.ps1\\WebServerConfig",
+        "backupFabric": "Azure",
+        "vaultName": "[concat(parameters('envPrefixName'), '-vault')]",
+        "asrVaultName": "[concat(parameters('envPrefixName'), '-asrvault')]",
+        "backupPolicyName": "vmpolicy",
+        "protectionContainer": "[concat('iaasvmcontainer;iaasvmcontainerv2;', resourceGroup().name, ';', variables('sqlSrvDBName'))]",
+        "protectedItem": "[concat('vm;iaasvmcontainerv2;', resourceGroup().name, ';', variables('sqlSrvDBName'))]"
     },
     "resources": [
+        {
+            "type": "Microsoft.RecoveryServices/vaults",
+            "apiVersion": "2015-11-10",
+            "name": "[variables('vaultName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+              "name": "RS0",
+              "tier": "Standard"
+            },
+            "properties": {}
+        },
+        {
+            "apiVersion": "2016-06-01",
+            "name": "[concat(variables('vaultName'), '/', variables('backupPolicyName'))]",
+            "type": "Microsoft.RecoveryServices/vaults/backupPolicies",
+            "dependsOn": [
+              "[concat('Microsoft.RecoveryServices/vaults/', variables('vaultName'))]"
+            ],
+            "location": "[parameters('location')]",
+            "properties": {
+              "backupManagementType": "AzureIaasVM",
+              "schedulePolicy": {
+                "scheduleRunFrequency": "Daily",
+                "scheduleRunDays": null,
+                "scheduleRunTimes": ["2018-12-05T23:00:00Z"],
+                "schedulePolicyType": "SimpleSchedulePolicy"
+              },
+              "retentionPolicy": {
+                "dailySchedule": {
+                  "retentionTimes": ["2018-12-05T23:00:00Z"],
+                  "retentionDuration": {
+                    "count": 7,
+                    "durationType": "Days"
+                  }
+                },
+                "weeklySchedule": {
+                  "daysOfTheWeek": [
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                      "Saturday",
+                      "Sunday"
+                    ],
+                  "retentionTimes": ["2018-12-05T23:00:00Z"],
+                  "retentionDuration": {
+                    "count": 52,
+                    "durationType": "Weeks"
+                  }
+                },
+                "monthlySchedule": {
+                  "retentionScheduleFormatType": "Daily",
+                  "retentionScheduleDaily": {
+                    "daysOfTheMonth": [
+                      {
+                        "date": 1,
+                        "isLast": false
+                      }
+                    ]
+                  },
+                  "retentionScheduleWeekly": null,
+                  "retentionTimes": ["2018-12-05T23:00:00Z"],
+                  "retentionDuration": {
+                    "count": "12",
+                    "durationType": "Months"
+                  }
+                },
+                "yearlySchedule": {
+                  "retentionScheduleFormatType": "Daily",
+                  "monthsOfYear": [
+                      "January",
+                      "February",
+                      "March",
+                      "April",
+                      "May",
+                      "June",
+                      "July",
+                      "August",
+                      "September",
+                      "October",
+                      "November",
+                      "December"
+                    ],
+                  "retentionScheduleDaily": {
+                    "daysOfTheMonth": [
+                      {
+                        "date": 1,
+                        "isLast": false
+                      }
+                    ]
+                  },
+                  "retentionScheduleWeekly": null,
+                  "retentionTimes": ["2018-12-05T23:00:00Z"],
+                  "retentionDuration": {
+                    "count": 7,
+                    "durationType": "Years"
+                  }
+                },
+                "retentionPolicyType": "LongTermRetentionPolicy"
+              },
+              "timeZone": "Mountain Standard Time"
+            }
+        },
+        {
+            "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+            "apiVersion": "2016-12-01",
+            "name": "[concat(variables('vaultName'), '/', variables('backupFabric'), '/', variables('protectionContainer'), '/', variables('protectedItem'))]",
+            "dependsOn": [
+              "[resourceId('Microsoft.Compute/virtualMachines', variables('sqlSrvDBName'))]",
+              "[resourceId('Microsoft.RecoveryServices/vaults', variables('vaultName'))]"
+            ],
+            "properties": {
+              "protectedItemType": "Microsoft.Compute/virtualMachines",
+              "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies',variables('vaultName'),variables('backupPolicyName'))]",
+              "sourceResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('sqlSrvDBName'))]"
+            }
+        },
+        {
+            "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+            "apiVersion": "2016-12-01",
+            "name": "[concat(variables('vaultName'), '/', variables('backupFabric'), '/', variables('protectionContainer'), '/', variables('protectedItem'))]",
+            "dependsOn": [
+              "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('webSrvName'), '0'))]",
+              "[resourceId('Microsoft.RecoveryServices/vaults', variables('vaultName'))]"
+            ],
+            "properties": {
+              "protectedItemType": "Microsoft.Compute/virtualMachines",
+              "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies',variables('vaultName'),variables('backupPolicyName'))]",
+              "sourceResourceId": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('webSrvName'), '0'))]"
+            }
+        },
+        {
+            "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+            "apiVersion": "2016-12-01",
+            "name": "[concat(variables('vaultName'), '/', variables('backupFabric'), '/', variables('protectionContainer'), '/', variables('protectedItem'))]",
+            "dependsOn": [
+              "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('webSrvName'), '1'))]",
+              "[resourceId('Microsoft.RecoveryServices/vaults', variables('vaultName'))]"
+            ],
+            "properties": {
+              "protectedItemType": "Microsoft.Compute/virtualMachines",
+              "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies',variables('vaultName'),variables('backupPolicyName'))]",
+              "sourceResourceId": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('webSrvName'), '1'))]"
+            }
+        },
         {
             "apiVersion": "2015-06-15",
             "type": "Microsoft.Network/networkSecurityGroups",
@@ -413,7 +565,7 @@
                 "publicIPAllocationMethod": "Dynamic",
                 "idleTimeoutInMinutes": 4,
                 "dnsSettings": {
-                    "domainNameLabel": "[variables('webSrvDnsNameforIP')]"
+                    "domainNameLabel": "[variables('webSrvDnsNameforLBIP')]"
                 }
             }
         },
@@ -547,7 +699,7 @@
                         "properties": {
                             "privateIPAllocationMethod": "Dynamic",
                             "subnet": {
-                                "id": "[variables('webSrvSubnetRef')]"
+                                "id": "[variables('jumpSrvSubnetRef')]"
                             },
                             "publicIPAddress": {
                                 "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('jumpSrvPublicIP'))]"
@@ -634,7 +786,7 @@
                     "ModulesUrl": "[variables('modulesUrl')]",
                     "SasToken": "",
                     "ConfigurationFunction": "[variables('configurationFunction')]",
-                    "wmfVersion": "4.0",
+                    "wmfVersion": "5.0",
                     "Properties": {}
                 },
                 "protectedSettings": {}
