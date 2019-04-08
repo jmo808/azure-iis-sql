@@ -401,7 +401,7 @@
                             "sourceAddressPrefix": "*",
                             "destinationAddressPrefix": "Storage.WestUs2",
                             "access": "Allow",
-                            "priority": 201,
+                            "priority": 100,
                             "direction": "Outbound"
                         }
                     }
