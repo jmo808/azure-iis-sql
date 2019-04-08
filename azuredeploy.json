@@ -344,9 +344,6 @@
                             "privateIPAllocationMethod": "Dynamic",
                             "subnet": {
                                 "id": "[variables('sqlSvrDBSubnetRef')]"
-                            },
-                            "publicIPAddress": {
-                                "id": "[variables('sqlPublicIPRef')]"
                             }
                         }
                     }
@@ -359,8 +356,7 @@
             "location": "[parameters('location')]",
             "apiVersion": "2017-03-30",
             "dependsOn": [
-                "[concat('Microsoft.Network/networkInterfaces/', variables('sqlSrvDBNicName'))]",
-                "[concat('Microsoft.Network/publicIPAddresses/', variables('sqlPublicIP'))]"
+                "[concat('Microsoft.Network/networkInterfaces/', variables('sqlSrvDBNicName'))]"
             ],
             "tags": {
                 "displayName": "SQL-Svr-DB"
