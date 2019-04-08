@@ -109,12 +109,16 @@
         "webSrvVMSize": "[parameters('webSrvVMSize')]",
         "webSrvNicName": "[concat(variables('webSrvName'), 'Nic')]",
         "webSrvSubnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'FESubnetName')]",
+        "jumpSrvSubnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'MGSubnetName')]",
         "webSrvPublicIP": "[concat(parameters('envPrefixName'), 'websrvpip')]",
+        "jumpSrvPublicIP": "[concat(parameters('envPrefixName'), 'jumpsrvpip')]",
         "webSrvAvailabilitySetName": "[concat(parameters('envPrefixName'), 'webSrvAS')]",
         "webSrvNumbOfInstances": "[parameters('numberOfWebSrvs')]",
         "webSrvDnsNameforLBIP": "[concat(toLower(variables('webSrvName')), 'lb')]",
+        "jumpSrvDnsNameforIP": "[concat(toLower(variables('jumpVMName')), 'ip')]",
         "webLbName": "[concat(variables('webSrvName'), 'lb')]",
         "webLblb_PIP_Id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('webSrvPublicIP'))]",
+        "jumpVM_PIP_Id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('jumpSrvPublicIP'))]",
         "webLbId": "[resourceId('Microsoft.Network/loadBalancers',variables('webLbName'))]",
         "frontEndIPConfigID": "[concat(variables('webLbId'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
         "lbPoolID": "[concat(variables('webLbId'),'/backendAddressPools/BackendPool1')]",
@@ -409,7 +413,23 @@
                 "publicIPAllocationMethod": "Dynamic",
                 "idleTimeoutInMinutes": 4,
                 "dnsSettings": {
-                    "domainNameLabel": "[variables('webSrvDnsNameforLBIP')]"
+                    "domainNameLabel": "[variables('webSrvDnsNameforIP')]"
+                }
+            }
+        },
+        {
+            "name": "[variables('jumpSrvPublicIP')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "location": "[parameters('location')]",
+            "apiVersion": "2015-06-15",
+            "tags": {
+                "displayName": "JumpSrvIP for LB"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4,
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('jumpSrvDnsNameforIP')]"
                 }
             }
         },
@@ -438,20 +458,6 @@
                 "backendAddressPools": [
                     {
                         "name": "BackendPool1"
-                    }
-                ],
-                "inboundNatRules": [
-                    {
-                        "name": "RDP-Jump",
-                        "properties": {
-                            "frontendIPConfiguration": {
-                                "id": "[variables('frontEndIPConfigID')]"
-                            },
-                            "protocol": "Tcp",
-                            "frontendPort": 50001,
-                            "backendPort": 3389,
-                            "enableFloatingIP": false
-                        }
                     }
                 ],
                 "loadBalancingRules": [
@@ -529,8 +535,7 @@
             "location": "[parameters('location')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
-                "[concat('Microsoft.Network/loadBalancers/', variables('webLbName'))]"
+                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
             ],
             "tags": {
                 "displayName": "jumpVMNic"
@@ -544,11 +549,9 @@
                             "subnet": {
                                 "id": "[variables('webSrvSubnetRef')]"
                             },
-                            "loadBalancerInboundNatRules": [
-                                {
-                                    "id": "[concat(variables('webLbId'),'/inboundNatRules/RDP-Jump')]"
-                                }
-                            ]
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('jumpSrvPublicIP'))]"
+                              }
                         }
                     }
                 ]
