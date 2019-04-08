@@ -6,17 +6,16 @@
 
 This template creates one or two Windows Server 2012R2 VM(s) with IIS configured using DSC. It also installs one SQL Server 2014 standard edition VM, a VNET with two subnets, NSG, load balancer, a Jump Box and probing rules.
 
+It also configures a Recovery Vault with a long term backup policy and crash consistent backups on all the VM's.
+
 ## Resources
 The following resources are created by this template:
 - 1 or 2 Windows 2012R2 IIS Web Servers.
 - 1 Jump Box for remote administration
 - 1 SQL Server 2014 running on premium or standard storage.
-- 1 virtual network with 3 subnets with NSG rules.
+- 1 virtual network with 3 subnets and NSG rules.
 - 1 Availability Set for IIS servers.
 - 1 Load balancer
+- 1 Recovery Vault
+- 1 Backup Policy
 
-<img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/iis-2vm-sql-1vm/images/resources.png" />
-
-
-## Architecture Diagram
-<img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/iis-2vm-sql-1vm/images/architecture.png" />
